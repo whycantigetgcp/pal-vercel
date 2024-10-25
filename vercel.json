@@ -1,9 +1,12 @@
 {
   "version": 2,
+  "env": {
+    "PROXY_HOST": "http://[2408:8763:0:9a5:ecf8:30ff:fe33:1b8c]:8080"
+  },
   "rewrites": [
     {
       "source": "/:path*",
-      "destination": "http://[2408:8763:0:9a5:ecf8:30ff:fe33:1b8c]:8080/:path*"
+      "destination": "/api/proxy/:path*"
     }
   ],
   "headers": [
