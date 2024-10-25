@@ -1,8 +1,62 @@
+// vercel.json
 {
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "http://[2408:8763:0:9a5:ecf8:30ff:fe33:1b8c]:8080/$1"
+      "dest": "/api/proxy"
     }
-  ]
+  ],
+  "regions": ["hkg1"]
+}
+
+// api/proxy.js
+const http = require('http')
+
+module.exports = async (req, res) => {
+  const TARGET_HOST = '2408:8763:0:9a5:ecf8:30ff:fe33:1b8c'
+  const TARGET_PORT = 8080  // 修改为你的 HTTP 端口
+
+  const options = {
+    hostname: TARGET_HOST,
+    port: TARGET_PORT,
+    path: req.url,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      'host': `[${TARGET_HOST}]:${TARGET_PORT}`,
+    }
+  }
+
+  try {
+    const proxyRequest = http.request(options, function(proxyResponse) {
+      res.writeHead(proxyResponse.statusCode, proxyResponse.headers)
+      proxyResponse.pipe(res, { end: true })
+    })
+
+    // 错误处理
+    proxyRequest.on('error', function(err) {
+      res.status(500).json({
+        error: 'Proxy Request Failed',
+        message: err.message
+      })
+    })
+
+    // 超时设置
+    proxyRequest.setTimeout(30000, function() {
+      proxyRequest.destroy()
+      res.status(504).json({ error: 'Gateway Timeout' })
+    })
+
+    // 如果是 POST 等带有 body 的请求，需要转发 body
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      req.pipe(proxyRequest, { end: true })
+    } else {
+      proxyRequest.end()
+    }
+  } catch (error) {
+    res.status(500).json({
+      error: 'Proxy Error',
+      message: error.message
+    })
+  }
 }
